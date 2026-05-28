@@ -1,0 +1,17 @@
+langchain
+langgraph
+langchain-core
+langchain-community
+fastapi
+uvicorn
+langchain-groq
+python-dotenv
+pydantic
+asyncpg
+sqlalchemy[asyncio]
+alembic
+redis
+celery
+httpx
+websockets
+pydantic-settings
