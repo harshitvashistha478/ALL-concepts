@@ -5,7 +5,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 import enum as py_enum
 from app.core.database import Base
-from app.models.user import User
 
 
 
@@ -26,4 +25,5 @@ class ResearchSession(Base):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    from app.models.user import User
     user: Mapped["User"] = relationship(back_populates="sessions")

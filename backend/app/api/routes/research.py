@@ -1,18 +1,13 @@
-"""
-Research Routes:
-POST /research/submit        → user submits a topic, starts background job
-GET  /research/{session_id}  → poll for result
-GET  /research/history/{user_id} → all past sessions for a user
-"""
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.core.database import get_db
-from app.models.models import ResearchSession, Agent, SessionStatus
-from app.schemas.schemas import ResearchRequest, ResearchResponse, ResearchResult, AgentResponse
-from app.tasks.celery_app import run_research_task
+from app.models.research import ResearchSession, SessionStatus
+from app.models.agent import Agent
+from app.schemas.schema import ResearchRequest, ResearchResponse, ResearchResult, AgentResponse
+from app.tasks.celery_tasks import run_research_task
 
 router = APIRouter(prefix="/research", tags=["Research"])
 
@@ -22,11 +17,6 @@ async def submit_research(
     request: ResearchRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    User submits a topic.
-    We create a session, kick off background task, return immediately.
-    Frontend then polls /research/{session_id} for the result.
-    """
     session = ResearchSession(
         id=str(uuid.uuid4()),
         user_id=request.user_id,
@@ -37,7 +27,6 @@ async def submit_research(
     await db.commit()
     await db.refresh(session)
 
-    # Fire and forget — Celery runs this in the background
     run_research_task.delay(session.id, request.topic)
 
     return ResearchResponse(
@@ -53,10 +42,6 @@ async def get_research_result(
     session_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Poll this endpoint to check if research is done.
-    Status goes: pending → processing → completed (or failed)
-    """
     result = await db.execute(
         select(ResearchSession).where(ResearchSession.id == session_id)
     )
@@ -64,7 +49,6 @@ async def get_research_result(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Get agents that worked on this session
     agents_result = await db.execute(
         select(Agent).where(Agent.session_id == session_id)
     )
@@ -81,7 +65,6 @@ async def get_research_result(
 
 @router.get("/history/{user_id}")
 async def get_user_history(user_id: str, db: AsyncSession = Depends(get_db)):
-    """Get all research sessions for a user."""
     result = await db.execute(
         select(ResearchSession)
         .where(ResearchSession.user_id == user_id)
@@ -89,3 +72,4 @@ async def get_user_history(user_id: str, db: AsyncSession = Depends(get_db)):
     )
     sessions = list(result.scalars().all())
     return sessions
+

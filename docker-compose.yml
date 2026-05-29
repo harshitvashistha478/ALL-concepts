@@ -1,0 +1,78 @@
+services:
+  postgres:
+    container_name: cyber_hub_postgres
+    image: postgres:15
+    environment:
+      POSTGRES_USER: cyberhub
+      POSTGRES_PASSWORD: cyberhub123
+      POSTGRES_DB: cyberhub_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cyberhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    container_name: cyber_hub_redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: cyber_hub_backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cyberhub:cyberhub123@postgres:5432/cyberhub_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  celery_worker:
+    build: ./backend
+    container_name: cyber_hub_celery
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cyberhub:cyberhub123@postgres:5432/cyberhub_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: celery -A app.tasks.celery_app worker --loglevel=info
+
+
+  frontend:
+    build: ./frontend
+    container_name: cyber_hub_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
