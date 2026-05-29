@@ -68,7 +68,7 @@ services:
     build: ./frontend
     container_name: cyber_hub_frontend
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
