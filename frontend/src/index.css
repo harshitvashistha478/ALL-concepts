@@ -46,3 +46,29 @@ body {
   animation: blink 1s step-end infinite;
   color: #00d4ff;
 }
+
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.floating {
+  animation: float 3s ease-in-out infinite;
+}
+
+.cyber-glow {
+  box-shadow:
+    0 0 10px rgba(0,212,255,0.2),
+    0 0 20px rgba(0,212,255,0.15),
+    0 0 30px rgba(0,212,255,0.1);
+}

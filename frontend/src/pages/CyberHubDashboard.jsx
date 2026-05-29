@@ -1,70 +1,77 @@
 import { useEffect } from 'react'
+
 import { useStore } from '../store/useStore'
 import { hubAPI } from '../services/api'
-import AgentHubPanel from '../components/AgentHubPanel'
+
+import SimulationWorld from '../components/simulation/SimulationWorld'
 import ResearchAreaPanel from '../components/ResearchAreaPanel'
 import ActivityLog from '../components/ActivityLog'
 
 export default function CyberHubDashboard() {
+
   const user = useStore((s) => s.user)
   const setAgents = useStore((s) => s.setAgents)
   const addActivity = useStore((s) => s.addActivity)
 
-  // Load all agents when dashboard mounts
   useEffect(() => {
+
     const loadAgents = async () => {
       try {
         const { data } = await hubAPI.getAllAgents()
         setAgents(data)
       } catch (e) {
-        console.error('Failed to load agents', e)
+        console.error(e)
       }
     }
-    loadAgents()
-    addActivity('Dashboard initialized. Welcome to Cyber Hub.')
 
-    // Poll agents every 5 seconds to reflect spawning/releasing
+    loadAgents()
+
+    addActivity('Cyber Hub initialized.')
+
     const interval = setInterval(loadAgents, 5000)
+
     return () => clearInterval(interval)
+
   }, [])
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Top Bar */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-cyber-border">
-        <div className="flex items-center gap-3">
-          <span className="font-display text-cyber-accent text-lg font-bold tracking-widest">
+    <div className="min-h-screen bg-[#050a0f] text-white overflow-hidden">
+
+      {/* TopBar */}
+      <header className="h-16 border-b border-cyan-500/20 flex items-center justify-between px-6">
+
+        <div>
+          <div className="text-cyan-400 font-black text-2xl tracking-[0.4em]">
             CYBER HUB
-          </span>
-          <span className="text-cyber-muted text-xs">v0.1.0</span>
+          </div>
         </div>
 
-        {/* User identity */}
-        <div className="flex items-center gap-3 text-xs">
-          <span className="w-2 h-2 rounded-full bg-cyber-green animate-pulse-slow" />
-          <span className="text-cyber-muted">Logged in as</span>
-          <span className="text-cyber-accent font-bold">{user?.name}</span>
+        <div className="text-sm text-cyan-200">
+          Operator: {user?.name}
         </div>
+
       </header>
 
-      {/* Main Layout: 2 panels + sidebar */}
-      <div className="flex flex-1 gap-0 overflow-hidden">
+      <div className="grid grid-cols-[1fr_350px] h-[calc(100vh-64px)]">
 
-        {/* Left: Agent Hub */}
-        <div className="w-72 border-r border-cyber-border overflow-y-auto">
-          <AgentHubPanel />
+        {/* LEFT */}
+        <div className="p-4 overflow-hidden">
+          <SimulationWorld />
         </div>
 
-        {/* Center: Research Area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* RIGHT */}
+        <div className="border-l border-cyan-500/20 overflow-y-auto">
+
           <ResearchAreaPanel />
+
+          <div className="border-t border-cyan-500/10">
+            <ActivityLog />
+          </div>
+
         </div>
 
-        {/* Right: Activity Log */}
-        <div className="w-64 border-l border-cyber-border overflow-y-auto">
-          <ActivityLog />
-        </div>
       </div>
+
     </div>
   )
 }

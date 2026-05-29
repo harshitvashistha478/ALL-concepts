@@ -1,209 +1,459 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
+
 import { researchAPI, hubAPI } from '../services/api'
 import { useStore } from '../store/useStore'
 
 const STATUS_MESSAGES = {
-  pending:    '⏳ Assembling research team...',
-  processing: '🔬 Agents are researching...',
-  completed:  '✅ Research complete',
-  failed:     '❌ Research failed',
+  pending: '🧠 Planning research operation...',
+  processing: '⚡ Agents actively researching...',
+  completed: '✅ Research operation completed',
+  failed: '❌ Mission failed'
 }
 
 export default function ResearchAreaPanel() {
-  const user            = useStore((s) => s.user)
-  const isResearching   = useStore((s) => s.isResearching)
-  const setIsResearching = useStore((s) => s.setIsResearching)
-  const researchResult  = useStore((s) => s.researchResult)
-  const setResearchResult = useStore((s) => s.setResearchResult)
-  const setAgents       = useStore((s) => s.setAgents)
-  const addActivity     = useStore((s) => s.addActivity)
 
+  // STORE
+  const user = useStore((s) => s.user)
+
+  const isResearching = useStore((s) => s.isResearching)
+  const setIsResearching = useStore((s) => s.setIsResearching)
+
+  const researchResult = useStore((s) => s.researchResult)
+  const setResearchResult = useStore((s) => s.setResearchResult)
+
+  const setAgents = useStore((s) => s.setAgents)
+
+  const addActivity = useStore((s) => s.addActivity)
+
+  // SIMULATION ACTIONS
+  const moveAgentsToResearch = useStore((s) => s.moveAgentsToResearch)
+  const setAgentsWorking = useStore((s) => s.setAgentsWorking)
+  const returnAgentsToHub = useStore((s) => s.returnAgentsToHub)
+  const finishReturn = useStore((s) => s.finishReturn)
+
+  // LOCAL STATE
   const [topic, setTopic] = useState('')
   const [sessionStatus, setSessionStatus] = useState(null)
   const [agentsUsed, setAgentsUsed] = useState([])
   const [error, setError] = useState(null)
-  const [plan, setPlan] = useState(null)
+
   const pollRef = useRef(null)
 
+  // SUBMIT RESEARCH
   const handleSubmit = async () => {
+
     if (!topic.trim() || isResearching) return
+
     setError(null)
+
     setResearchResult(null)
+
     setAgentsUsed([])
-    setPlan(null)
+
     setIsResearching(true)
-    addActivity(`New research request: "${topic}"`)
+
+    addActivity(`New mission received: "${topic}"`)
 
     try {
+
       const { data } = await researchAPI.submit(user.id, topic)
-      addActivity('Research Major is planning agent team...')
+
       setSessionStatus('pending')
+
+      addActivity('Research Major assembling agent squad...')
+
+      // MOVE AGENTS TO LAB
+      moveAgentsToResearch()
+
+      // AFTER WALKING -> START WORKING
+      setTimeout(() => {
+
+        setAgentsWorking()
+
+        addActivity('Agents entered Research Lab.')
+
+      }, 3000)
+
       startPolling(data.session_id)
+
     } catch (e) {
-      setError('Failed to submit research. Is the backend running?')
+
+      console.error(e)
+
+      setError('Failed to initialize research mission.')
+
       setIsResearching(false)
     }
   }
 
+  // POLLING
   const startPolling = (sessionId) => {
+
     pollRef.current = setInterval(async () => {
+
       try {
+
         const { data } = await researchAPI.getResult(sessionId)
+
         setSessionStatus(data.status)
 
+        // AGENTS USED
         if (data.agents_used?.length > 0) {
+
           setAgentsUsed(data.agents_used)
-          addActivity(`${data.agents_used.length} agent(s) spawned from Hub`)
+
         }
 
+        // PROCESSING
         if (data.status === 'processing') {
-          addActivity('Agents are conducting research...')
+
+          addActivity('Agents are processing intelligence...')
+
         }
 
+        // COMPLETED
         if (data.status === 'completed') {
+
           clearInterval(pollRef.current)
+
           setResearchResult(data.result)
+
           setIsResearching(false)
-          addActivity('Research synthesized. Report ready.')
-          // Refresh agent list
+
+          addActivity('Research synthesis completed.')
+
+          // RETURN AGENTS
+          returnAgentsToHub()
+
+          addActivity('Agents returning to Agent Hub...')
+
+          setTimeout(() => {
+
+            finishReturn()
+
+            addActivity('All agents returned successfully.')
+
+          }, 3000)
+
+          // REFRESH AGENTS
           const agents = await hubAPI.getAllAgents()
+
           setAgents(agents.data)
         }
 
+        // FAILED
         if (data.status === 'failed') {
+
           clearInterval(pollRef.current)
-          setError(data.result || 'Research failed.')
+
+          setError(data.result || 'Mission failed.')
+
           setIsResearching(false)
+
+          returnAgentsToHub()
+
+          setTimeout(() => {
+
+            finishReturn()
+
+          }, 3000)
         }
+
       } catch (e) {
-        console.error('Poll error', e)
+
+        console.error('Polling Error:', e)
+
       }
+
     }, 3000)
   }
 
-  useEffect(() => () => clearInterval(pollRef.current), [])
+  // CLEANUP
+  useEffect(() => {
+
+    return () => {
+
+      clearInterval(pollRef.current)
+
+    }
+
+  }, [])
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      {/* Header */}
+
+    <div className="p-6 text-white">
+
+      {/* HEADER */}
       <div className="mb-6">
-        <div className="text-xs text-cyber-muted uppercase tracking-widest mb-1">Department</div>
-        <h2 className="font-display text-white text-xl font-bold tracking-wider">
-          RESEARCH AREA
-        </h2>
-        <p className="text-cyber-muted text-xs mt-1">
-          Submit a topic. The Major will assemble a team and deliver a full report.
+
+        <div className="text-xs uppercase tracking-[0.4em] text-cyan-400 mb-2">
+          RESEARCH COMMAND
+        </div>
+
+        <h1 className="text-2xl font-black tracking-[0.2em] text-white">
+          OPERATIONS PANEL
+        </h1>
+
+        <p className="text-cyan-200/70 text-sm mt-3 leading-relaxed">
+          Deploy autonomous AI agents into the Research Lab.
+          Agents will investigate, collaborate, synthesize findings,
+          and return with a final intelligence report.
         </p>
+
       </div>
 
-      {/* Input */}
-      <div className="glow-border rounded p-4 mb-6">
-        <label className="block text-xs text-cyber-muted mb-2 uppercase tracking-widest">
-          Research Topic
-        </label>
+      {/* INPUT PANEL */}
+      <div className="border border-cyan-500/20 rounded-2xl p-5 bg-cyan-500/[0.03] backdrop-blur-sm mb-6">
+
+        <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-3">
+          Mission Topic
+        </div>
+
         <textarea
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          placeholder="e.g. How does React handle state management in large apps?"
-          rows={3}
+          rows={4}
           disabled={isResearching}
-          className="w-full bg-transparent text-cyber-text text-sm resize-none outline-none placeholder:text-cyber-muted/40 leading-relaxed"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && e.ctrlKey) handleSubmit()
-          }}
+          placeholder="Example: Analyze how LangGraph manages stateful multi-agent workflows..."
+          className="
+            w-full
+            bg-black/30
+            border
+            border-cyan-500/10
+            rounded-xl
+            p-4
+            text-sm
+            text-cyan-100
+            placeholder:text-cyan-200/30
+            outline-none
+            resize-none
+            focus:border-cyan-400/40
+            transition-all
+          "
         />
-        <div className="flex items-center justify-between mt-3">
-          <span className="text-cyber-muted text-xs">Ctrl+Enter to submit</span>
+
+        <div className="flex items-center justify-between mt-4">
+
+          <div className="text-xs text-cyan-300/50">
+            CTRL + ENTER to deploy agents
+          </div>
+
           <button
             onClick={handleSubmit}
             disabled={isResearching || !topic.trim()}
-            className="px-5 py-2 text-xs font-display tracking-widest uppercase transition-all duration-200"
+            className="
+              px-6
+              py-3
+              rounded-xl
+              text-sm
+              font-bold
+              tracking-[0.2em]
+              transition-all
+              duration-300
+            "
             style={{
-              background: isResearching || !topic.trim()
-                ? 'transparent'
-                : 'rgba(0,212,255,0.1)',
-              border: '1px solid',
-              borderColor: isResearching || !topic.trim()
-                ? 'rgba(0,212,255,0.15)'
-                : 'rgba(0,212,255,0.5)',
-              color: isResearching || !topic.trim() ? '#3a5a7a' : '#00d4ff',
+              background: isResearching
+                ? 'rgba(255,255,255,0.03)'
+                : 'rgba(0,212,255,0.08)',
+
+              border: '1px solid rgba(0,212,255,0.3)',
+
+              color: isResearching
+                ? '#5a7188'
+                : '#00d4ff',
+
+              boxShadow: isResearching
+                ? 'none'
+                : '0 0 20px rgba(0,212,255,0.15)'
             }}
           >
-            {isResearching ? 'Researching...' : 'Deploy Agents →'}
+
+            {isResearching
+              ? 'MISSION ACTIVE...'
+              : 'DEPLOY AGENTS'}
+
           </button>
+
         </div>
+
       </div>
 
-      {/* Status bar */}
+      {/* STATUS */}
       {sessionStatus && (
-        <div className="glow-border rounded px-4 py-3 mb-4 flex items-center gap-3">
-          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-            sessionStatus === 'completed' ? 'bg-cyber-green' :
-            sessionStatus === 'failed'    ? 'bg-cyber-red' :
-            'bg-cyber-yellow animate-pulse'
-          }`} />
-          <span className="text-xs">{STATUS_MESSAGES[sessionStatus]}</span>
+
+        <div
+          className="
+            mb-6
+            border
+            border-cyan-500/20
+            rounded-xl
+            p-4
+            flex
+            items-center
+            gap-3
+            bg-black/20
+          "
+        >
+
+          <div
+            className={`
+              w-3
+              h-3
+              rounded-full
+              ${
+                sessionStatus === 'completed'
+                  ? 'bg-green-400'
+
+                  : sessionStatus === 'failed'
+                  ? 'bg-red-400'
+
+                  : 'bg-yellow-400 animate-pulse'
+              }
+            `}
+          />
+
+          <div className="text-sm text-cyan-100">
+            {STATUS_MESSAGES[sessionStatus]}
+          </div>
+
         </div>
+
       )}
 
-      {/* Agents being used */}
+      {/* AGENTS */}
       {agentsUsed.length > 0 && (
-        <div className="mb-4">
-          <div className="text-xs text-cyber-muted mb-2 uppercase tracking-widest">
-            Agents on this task
+
+        <div className="mb-6">
+
+          <div className="text-xs uppercase tracking-[0.3em] text-cyan-400 mb-3">
+            Active Agents
           </div>
-          <div className="flex flex-wrap gap-2">
+
+          <div className="flex flex-wrap gap-3">
+
             {agentsUsed.map((agent) => (
-              <div key={agent.id}
-                className="glow-border rounded px-3 py-1.5 text-xs flex items-center gap-2">
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  agent.status === 'busy'     ? 'bg-cyber-yellow animate-pulse' :
-                  agent.status === 'released' ? 'bg-cyber-green' :
-                  'bg-cyber-muted'
-                }`} />
-                <span className="text-cyber-accent">{agent.name}</span>
-                <span className="text-cyber-muted">{agent.role}</span>
+
+              <div
+                key={agent.id}
+                className="
+                  border
+                  border-cyan-500/20
+                  rounded-xl
+                  px-4
+                  py-2
+                  bg-cyan-500/[0.03]
+                  text-xs
+                "
+              >
+
+                <div className="text-cyan-300 font-semibold">
+                  {agent.name}
+                </div>
+
+                <div className="text-cyan-100/50 mt-1">
+                  {agent.role}
+                </div>
+
               </div>
+
             ))}
+
           </div>
+
         </div>
+
       )}
 
-      {/* Error */}
+      {/* ERROR */}
       {error && (
-        <div className="glow-border border-cyber-red/30 rounded p-4 mb-4 text-cyber-red text-sm">
+
+        <div
+          className="
+            border
+            border-red-500/30
+            bg-red-500/10
+            rounded-xl
+            p-4
+            text-red-300
+            text-sm
+            mb-6
+          "
+        >
           {error}
         </div>
+
       )}
 
-      {/* Research result */}
+      {/* RESULT */}
       {researchResult && (
-        <div className="glow-border rounded p-5">
-          <div className="text-xs text-cyber-muted uppercase tracking-widest mb-4">
-            Final Report
+
+        <div
+          className="
+            border
+            border-cyan-500/20
+            rounded-2xl
+            p-6
+            bg-cyan-500/[0.02]
+          "
+        >
+
+          <div className="text-xs uppercase tracking-[0.4em] text-cyan-400 mb-6">
+            FINAL INTELLIGENCE REPORT
           </div>
-          <div className="prose prose-invert prose-sm max-w-none"
-            style={{
-              '--tw-prose-headings': '#00d4ff',
-              '--tw-prose-body': '#a8c8e8',
-              '--tw-prose-bold': '#ffffff',
-            }}>
+
+          <div className="prose prose-invert max-w-none">
+
             <ReactMarkdown
               components={{
-                h1: ({children}) => <h1 className="font-display text-cyber-accent text-lg mb-3">{children}</h1>,
-                h2: ({children}) => <h2 className="font-display text-cyber-accent text-base mb-2 mt-4">{children}</h2>,
-                h3: ({children}) => <h3 className="text-white text-sm font-bold mb-2 mt-3">{children}</h3>,
-                p:  ({children}) => <p className="text-cyber-text text-sm leading-relaxed mb-3">{children}</p>,
-                li: ({children}) => <li className="text-cyber-text text-sm mb-1">{children}</li>,
-                strong: ({children}) => <strong className="text-white">{children}</strong>,
+
+                h1: ({ children }) => (
+                  <h1 className="text-2xl text-cyan-300 font-black mb-5">
+                    {children}
+                  </h1>
+                ),
+
+                h2: ({ children }) => (
+                  <h2 className="text-xl text-cyan-200 font-bold mt-8 mb-4">
+                    {children}
+                  </h2>
+                ),
+
+                h3: ({ children }) => (
+                  <h3 className="text-lg text-white font-semibold mt-6 mb-3">
+                    {children}
+                  </h3>
+                ),
+
+                p: ({ children }) => (
+                  <p className="text-cyan-100/90 leading-relaxed mb-4">
+                    {children}
+                  </p>
+                ),
+
+                li: ({ children }) => (
+                  <li className="text-cyan-100/90 mb-2">
+                    {children}
+                  </li>
+                ),
+
+                strong: ({ children }) => (
+                  <strong className="text-white">
+                    {children}
+                  </strong>
+                )
+
               }}
             >
               {researchResult}
             </ReactMarkdown>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   )
 }
