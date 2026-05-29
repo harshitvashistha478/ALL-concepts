@@ -5,7 +5,8 @@ from sqlalchemy import select
 
 from app.models.agent import Agent, SkillLevel, AgentStatus
 from app.models.agent_request import AgentRequest
-from app.utils.agents_extras import AGENT_NAMES, SKILL_PROMPTS
+from app.utils.agents_extras import AGENT_NAMES
+from app.utils.agents_prompt import SKILL_PROMPTS
 
 
 def generate_agent_name(role: str) -> str:

@@ -7,10 +7,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine, Base
-from app.api.routes import users, research, hub
+from app.api.routes.users import router as users_router
+from app.api.routes.research import router as research_router
+from app.api.routes.hub import router as hub_router
 
 # Import models so SQLAlchemy knows about them when creating tables
-from app.models import models  # noqa
+from app.models import user, research, agent, agent_request 
+
+
 
 
 @asynccontextmanager
@@ -40,9 +44,9 @@ app.add_middleware(
 )
 
 # Register all route groups
-app.include_router(users.router)
-app.include_router(research.router)
-app.include_router(hub.router)
+app.include_router(users_router)
+app.include_router(research_router)
+app.include_router(hub_router)
 
 
 @app.get("/")

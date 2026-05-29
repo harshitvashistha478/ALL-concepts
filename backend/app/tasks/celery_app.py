@@ -15,3 +15,4 @@ celery_app.conf.update(
 )
 
 
+import app.tasks.celery_tasks

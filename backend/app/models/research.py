@@ -25,5 +25,4 @@ class ResearchSession(Base):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    from app.models.user import User
-    user: Mapped["User"] = relationship(back_populates="sessions")
+    user: Mapped["User"] = relationship(back_populates="sessions") # type: ignore
